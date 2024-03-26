@@ -1,3 +1,9 @@
 package com.example.authentication.data
 
-data class RegisterBody()
+import com.google.gson.annotations.SerializedName
+
+data class RegisterBody(
+    @SerializedName("user_name") val userName: String,
+    val email: String,
+    val password: String,
+)

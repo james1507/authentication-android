@@ -1,5 +1,6 @@
 package com.example.authentication.view
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Patterns
@@ -10,7 +11,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import com.example.authentication.R
-import com.example.authentication.data.ValidateEmailBody
+import com.example.authentication.data.RegisterBody
 import com.example.authentication.databinding.ActivityRegisterBinding
 import com.example.authentication.repository.AuthRepository
 import com.example.authentication.utils.APIService
@@ -30,7 +31,8 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
         mBinding.fullName.onFocusChangeListener = this
         mBinding.email.onFocusChangeListener = this
         mBinding.password.onFocusChangeListener = this
-
+        mBinding.password.setOnKeyListener(this)
+        mBinding.registerButton.setOnClickListener(this)
         mViewModel = ViewModelProvider(
             this,
             RegisterActivityViewModelFactory(AuthRepository(APIService.getService()), application)
@@ -76,15 +78,17 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
 
                 if (message.isNotEmpty()) {
                     AlertDialog.Builder(this).setIcon(R.drawable.info_24).setTitle("INFORMATION")
-                        .setMessage(message).setPositiveButton("OK") {
-                            dialog, _ -> dialog.dismiss()
+                        .setMessage(message).setPositiveButton("OK") { dialog, _ ->
+                            dialog.dismiss()
                         }.show()
                 }
             }
         }
 
         mViewModel.getUser().observe(this) {
-
+            if (it != null) {
+                startActivity(Intent(this, HomeActivity::class.java))
+            }
         }
     }
 
@@ -105,7 +109,7 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
         return errorMessage == null
     }
 
-    private fun validateEmail(): Boolean {
+    private fun validateEmail(shouldUpdateView: Boolean = true): Boolean {
         var errorMessage: String? = null
         val value: String = mBinding.email.text.toString()
         if (value.isEmpty()) {
@@ -114,7 +118,7 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
             errorMessage = "Email address is invalid"
         }
 
-        if (errorMessage != null) {
+        if (errorMessage != null && shouldUpdateView) {
             mBinding.emailTitle.apply {
                 isErrorEnabled = true
                 error = errorMessage
@@ -124,7 +128,7 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
         return errorMessage == null
     }
 
-    private fun validatePassword(): Boolean {
+    private fun validatePassword(shouldUpdateView: Boolean = true): Boolean {
         var errorMessage: String? = null
         val value: String = mBinding.password.text.toString()
         if (value.isEmpty()) {
@@ -133,7 +137,7 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
             errorMessage = "Password must be 6 characters long"
         }
 
-        if (errorMessage != null) {
+        if (errorMessage != null && shouldUpdateView) {
             mBinding.passwordTitle.apply {
                 isErrorEnabled = true
                 error = errorMessage
@@ -144,6 +148,9 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
     }
 
     override fun onClick(view: View?) {
+        if (view != null && view.id == R.id.registerButton) {
+            onSubmit()
+        }
     }
 
     override fun onFocusChange(view: View?, hasFocus: Boolean) {
@@ -165,9 +172,7 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
                             mBinding.emailTitle.isErrorEnabled = false
                         }
                     } else {
-                        if(validateEmail()) {
-                            mViewModel.validateEmailAddress(ValidateEmailBody(mBinding.email.text!!.toString()))
-                        }
+                        validateEmail()
                     }
                 }
 
@@ -185,8 +190,37 @@ class RegisterActivity : AppCompatActivity(), View.OnFocusChangeListener, View.O
     }
 
     override fun onKey(view: View?, keyCode: Int, event: KeyEvent?): Boolean {
+        if (validatePassword(shouldUpdateView = false)) {
+            mBinding.passwordTitle.apply {
+                if (isErrorEnabled) isErrorEnabled = false
+            }
+        } else {
+            if (mBinding.passwordTitle.startIconDrawable != null)
+                mBinding.passwordTitle.startIconDrawable = null
+        }
+
         return false
     }
 
+    private fun onSubmit() {
+        if (validate()) {
+            mViewModel.registerUser(
+                RegisterBody(
+                    mBinding.fullName.text!!.toString(),
+                    mBinding.email.text!!.toString(),
+                    mBinding.password.text!!.toString()
+                )
+            )
+        }
+    }
 
+    private fun validate(): Boolean {
+        var isValid = true
+
+        if (!validateFullName()) isValid = false
+        if (!validateEmail()) isValid = false
+        if (!validatePassword()) isValid = false
+
+        return isValid
+    }
 }
